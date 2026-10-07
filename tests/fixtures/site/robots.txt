@@ -1,0 +1,2 @@
+User-agent: QuillBot
+Disallow: /private.html

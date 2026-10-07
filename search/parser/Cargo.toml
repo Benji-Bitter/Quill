@@ -1,0 +1,17 @@
+[package]
+name = "quill-search-parser"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+quill-search-common = { path = "../common" }
+scraper = "0.27"
+url.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -1,0 +1,18 @@
+[package]
+name = "quill-search"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+quill-search-common = { path = "../common" }
+quill-search-index = { path = "../index" }
+quill-search-crawler = { path = "../crawler" }
+serde_json.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

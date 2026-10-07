@@ -1,0 +1,20 @@
+[package]
+name = "quill-search-crawler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+quill-search-common = { path = "../common" }
+quill-search-parser = { path = "../parser" }
+quill-search-index = { path = "../index" }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+robotstxt = "0.3"
+url.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
