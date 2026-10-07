@@ -1,0 +1,16 @@
+/target/
+/.quill/
+/engine/
+/obj-*/
+/dist/
+*.pyc
+__pycache__/
+.DS_Store
+.idea/
+.vscode/
+*.key
+*.pem
+*.vault
+*.sqlite*
+*.dmp
+.env

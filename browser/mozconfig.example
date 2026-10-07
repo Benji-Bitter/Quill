@@ -1,0 +1,5 @@
+# Starting point for a separate, pinned Mozilla checkout. Not release validated.
+ac_add_options --enable-application=browser
+ac_add_options --disable-official-branding
+mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-quill
+# A complete Quill branding directory and reviewed engine patches are still needed.
