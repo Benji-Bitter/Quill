@@ -43,9 +43,30 @@ pub struct Hit {
     pub url: String,
     pub snippet: String,
     pub score: f64,
+    pub matched_terms: Vec<String>,
+    pub repetition_factor: f64,
 }
 
 impl Index {
+    pub fn documents(&self) -> &[Document] {
+        &self.documents
+    }
+    pub fn merge(&mut self, other: Self) -> Result<usize> {
+        let before = self.len();
+        let replaced: BTreeSet<_> = other.documents.iter().map(|d| d.url.as_str()).collect();
+        let mut updated = Self::default();
+        for document in &self.documents {
+            if !replaced.contains(document.url.as_str()) {
+                updated.insert(document.clone())?;
+            }
+        }
+        for document in &other.documents {
+            updated.insert(document.clone())?;
+        }
+        let added = updated.len().saturating_sub(before);
+        *self = updated;
+        Ok(added)
+    }
     pub fn len(&self) -> usize {
         self.documents.len()
     }
@@ -127,7 +148,10 @@ impl Index {
             }
         }
         let mut scored: Vec<_> = scores.into_iter().collect();
-        scored.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        scored.sort_by(|a, b| {
+            b.1.total_cmp(&a.1)
+                .then(self.documents[a.0].url.cmp(&self.documents[b.0].url))
+        });
         scored
             .into_iter()
             .take(limit.min(100))
@@ -150,6 +174,16 @@ impl Index {
                         .collect::<Vec<_>>()
                         .join(" "),
                     score,
+                    matched_terms: terms
+                        .iter()
+                        .filter(|term| {
+                            self.postings
+                                .get(*term)
+                                .is_some_and(|ps| ps.iter().any(|p| p.document == id))
+                        })
+                        .cloned()
+                        .collect(),
+                    repetition_factor: self.quality[id],
                 }
             })
             .collect()
@@ -246,6 +280,25 @@ mod tests {
         corrupt["postings"]["rust"][0]["document"] = 999.into();
         std::fs::write(&path, serde_json::to_vec(&corrupt).unwrap()).unwrap();
         assert!(Index::load(&path).is_err());
+    }
+    #[test]
+    fn merging_refreshes_pages_and_explains_results() {
+        let mut index = Index::default();
+        index.insert(doc("a", "Old title", "old body")).unwrap();
+        let mut incoming = Index::default();
+        incoming
+            .insert(doc("a", "Solar power", "solar panels generate electricity"))
+            .unwrap();
+        incoming
+            .insert(doc("b", "Wind", "wind turbines generate energy"))
+            .unwrap();
+        assert_eq!(index.merge(incoming).unwrap(), 1);
+        assert!(index.query("old", 10).is_empty());
+        let hits = index.query("solar electricity", 10);
+        assert_eq!(hits[0].matched_terms, ["electricity", "solar"]);
+        assert_eq!(hits[0].url, "https://example.org/a");
+        assert!(hits[0].score > 0.0);
+        assert!(hits[0].repetition_factor > 0.0 && hits[0].repetition_factor <= 1.0);
     }
     #[test]
     fn malformed_indexes_fail_without_panics() {

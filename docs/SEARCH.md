@@ -1,7 +1,7 @@
 # Search
 
-The current search engine crawls a controlled origin and queries a local custom
-inverted index. It never proxies a commercial engine. Run:
+The standalone Mac app and CLI crawl selected origins and query a local custom
+inverted index. See [Search app](SEARCH-APP.md) for the native interface. It never proxies a commercial engine. Run:
 
 ```sh
 python3 tools/search_demo.py
@@ -25,8 +25,8 @@ navigation policy and is deliberately not applied to crawler identity.
 most 30 URLs through the CLI (library maximum 100). It requests at most twice a
 second, checks TLS certificates, disables implicit proxies and redirects, and
 follows discovered redirects only on the seed origin after another robots check.
-Robots 404/410 allow crawling; other non-200 responses fail closed. Crawl-delay
-currently causes refusal because a configurable scheduler is not implemented.
+Robots 404/410 allow crawling; other non-200 responses fail closed. The largest declared Crawl-delay is respected conservatively across all user-agent
+groups; invalid values or delays over 30 seconds cause refusal.
 Robots are bounded to 512 KiB; HTML to 2 MiB; each request has a 15-second timeout.
 Compressed content is rejected to avoid decompression bombs. UTF-8 HTML only.
 
@@ -48,6 +48,12 @@ Mmap, compression, multiple segments and background compaction are future work.
 penalty to extreme token repetition. No political/source reputation table, paid
 ranking, fabricated corroboration or model call is involved. These heuristics do
 not establish truth, detect all SEO spam or identify original authorship.
+
+`collect INDEX PAGES URL...` merges multiple crawls into an existing index, refreshing
+matching URLs. Each completed site is saved atomically. An OS file lock prevents
+concurrent CLI writers and is released even if a crawl is terminated. `stats INDEX`
+reports document and origin counts. Search hits expose matching terms and the
+repetition factor; score ties are resolved by URL.
 
 `query` is the CLI. Its benchmark separates loading from 1,000 in-memory queries.
 The new-tab extension separately searches Firefox history/bookmarks through local

@@ -67,15 +67,7 @@ pub fn crawl(seed: &str, max_pages: usize) -> Result<(Index, Report)> {
         404 | 410 => String::new(),
         _ => return Err(invalid("robots unavailable or redirects; refusing crawl")),
     };
-    // Crawl-delay is nonstandard. Refuse rather than silently violate it.
-    if robots
-        .lines()
-        .any(|line| line.trim().to_ascii_lowercase().starts_with("crawl-delay:"))
-    {
-        return Err(invalid(
-            "crawl-delay requires a configured scheduler; refusing crawl",
-        ));
-    }
+    let delay = crawl_delay(&robots)?;
     let mut queue = VecDeque::from([seed.clone()]);
     let mut seen = BTreeSet::new();
     let mut index = Index::default();
@@ -93,7 +85,7 @@ pub fn crawl(seed: &str, max_pages: usize) -> Result<(Index, Report)> {
             report.denied += 1;
             continue;
         }
-        std::thread::sleep(Duration::from_millis(500).saturating_sub(last_request.elapsed()));
+        std::thread::sleep(delay.saturating_sub(last_request.elapsed()));
         last_request = Instant::now();
         let response = match client
             .get(url.clone())
@@ -176,4 +168,43 @@ pub fn crawl(seed: &str, max_pages: usize) -> Result<(Index, Report)> {
 pub fn seed_origin(seed: &str) -> Result<String> {
     let url: Url = canonicalize(seed)?;
     Ok(url.origin().ascii_serialization())
+}
+
+// Apply the largest declared delay conservatively, even for other user agents.
+fn crawl_delay(robots: &str) -> Result<Duration> {
+    let mut seconds = 0.5_f64;
+    for line in robots.lines() {
+        let line = line.split('#').next().unwrap_or("");
+        if let Some((name, value)) = line.split_once(':')
+            && name.trim().eq_ignore_ascii_case("crawl-delay")
+        {
+            let requested: f64 = value
+                .trim()
+                .parse()
+                .map_err(|_| invalid("invalid crawl-delay; refusing crawl"))?;
+            if !requested.is_finite() || !(0.0..=30.0).contains(&requested) {
+                return Err(invalid(
+                    "crawl-delay exceeds supported 30 seconds; refusing crawl",
+                ));
+            }
+            seconds = seconds.max(requested);
+        }
+    }
+    Ok(Duration::from_secs_f64(seconds))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn respects_delays_and_rejects_unbounded_values() {
+        assert_eq!(crawl_delay("").unwrap(), Duration::from_millis(500));
+        assert_eq!(
+            crawl_delay("Crawl-delay: 2 # seconds\nCrawl-delay: 1").unwrap(),
+            Duration::from_secs(2)
+        );
+        for value in ["NaN", "inf", "-1", "31", "no"] {
+            assert!(crawl_delay(&format!("Crawl-delay: {value}")).is_err());
+        }
+    }
 }
