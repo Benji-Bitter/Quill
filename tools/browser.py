@@ -78,7 +78,24 @@ def launch(binary, profile, headless=False):
             client.command("Addon:Install", {"path": str(extension), "temporary": True, "allowPrivateBrowsing": False})
         except RuntimeError as error:
             extension_error = str(error)
-        destination = "about:newtab" if extension_error is None else (profile / "homepage/newtab.html").as_uri()
+        destination = (profile / "homepage/newtab.html").as_uri()
+        if extension_error is None:
+            # The new-tab button uses this URL; about:newtab remains Firefox's page.
+            client.command("Marionette:SetContext", {"value": "chrome"})
+            try:
+                deadline = time.monotonic() + 10
+                while time.monotonic() < deadline:
+                    configured = client.command("WebDriver:ExecuteScript", {
+                        "script": "return BROWSER_NEW_TAB_URL;", "args": []
+                    })["value"]
+                    if configured.startswith("moz-extension://"):
+                        destination = configured
+                        break
+                    time.sleep(0.1)
+                else:
+                    extension_error = "Quill installed but its new-tab override did not become active"
+            finally:
+                client.command("Marionette:SetContext", {"value": "content"})
         client.command("WebDriver:Navigate", {"url": destination})
         return process, client, time.perf_counter() - started, extension_error
     except BaseException:
