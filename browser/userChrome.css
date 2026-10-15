@@ -1,0 +1,7 @@
+/* Keep native window controls, security indicators and browser actions intact. */
+:root { --toolbar-bgcolor: #f7f6f2 !important; --toolbar-color: #20201f !important; --lwt-accent-color: #efeee9 !important; --lwt-text-color: #20201f !important; font-family: system-ui !important; }
+@media (prefers-color-scheme: dark) { :root { --toolbar-bgcolor: #191919 !important; --toolbar-color: #eeeeea !important; --lwt-accent-color: #222 !important; --lwt-text-color: #eeeeea !important; } }
+#TabsToolbar, #nav-bar { box-shadow: none !important; }
+#urlbar-background { border-radius: 6px !important; }
+#personal-bookmarks, #sidebar-button { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: 0s !important; transition-duration: 0s !important; } }

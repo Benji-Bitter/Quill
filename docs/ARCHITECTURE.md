@@ -10,7 +10,8 @@ isolated development profile. A temporary WebExtension supplies Quill's new tab
 and request URL cleaning; userChrome CSS trims visual noise. This is a development
 host, not a rebranded binary. Firefox's window controls, settings, downloads,
 history, bookmarks, password manager and extension manager remain real Firefox
-features. Quill's Rust vault is separate. No browser history is imported into search.
+features. If extension installation is blocked, the launcher supplies only a local homepage
+and clearly reports the missing extension features. Quill's Rust vault is separate. No browser history is imported into search.
 
 `privacy/`, `search/`, `vault/` and `updater/` are independent Rust components.
 Only the crawler performs network I/O. The updater only verifies local bytes.

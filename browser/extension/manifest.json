@@ -1,0 +1,41 @@
+{
+  "manifest_version": 2,
+  "name": "Quill development shell",
+  "version": "0.1.0",
+  "description": "Minimal local new tab and navigation privacy for the Quill development profile.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "quill-dev@quill.local",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
+    }
+  },
+  "permissions": [
+    "history",
+    "bookmarks",
+    "storage",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": [
+      "tracking-parameters.js",
+      "clean-url.js",
+      "background.js"
+    ]
+  },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+  "incognito": "not_allowed",
+  "content_security_policy": "script-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'"
+}

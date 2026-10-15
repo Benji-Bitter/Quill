@@ -1,0 +1,10 @@
+{
+  "purpose": "Development host tested on macOS; not a Quill release or an auto-update pin",
+  "product": "Firefox",
+  "version": "157.0.1",
+  "build_id": "20261005135250",
+  "source_repository": "https://hg.mozilla.org/releases/mozilla-release",
+  "source_revision": "737ec77d798755890b062aab541a90d6c75afd19",
+  "mac_dmg_sha256": "40a0a649120635460256dae9ad63e40377f77326cbc9c449a5d0a1d7f5dd7982",
+  "checksum_source": "https://archive.mozilla.org/pub/firefox/releases/157.0.1/SHA256SUMS"
+}

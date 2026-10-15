@@ -3,6 +3,7 @@
 Use the pinned Rust toolchain and Python 3.11+. Run `cargo fmt --all --check`,
 `cargo clippy --workspace --all-targets --locked -- -D warnings`,
 `cargo test --workspace --locked`, and `python3 -m unittest discover -s tests`.
+Run extension tests with `node --test tests/extension.test.mjs` (Node.js 24).
 Keep changes focused and explain security boundaries. Never commit browsing
 profiles, indexes, credentials, private signing keys, or captured user traffic.
 

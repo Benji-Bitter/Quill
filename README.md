@@ -1,6 +1,6 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/branding/white%20icon.png">
-  <img src="assets/branding/black%20icon.png" alt="Quill" width="96">
+  <img src="assets/branding/black%20icon.png" alt="Quill" width="200">
 </picture>
 
 # Quill
@@ -30,7 +30,7 @@ python3 tools/browser.py --firefox /path/to/firefox
 On macOS, pass the executable inside Firefox.app:
 `/Applications/Firefox.app/Contents/MacOS/firefox`.
 The launcher creates a separate development profile, never your normal profile.
-See [building](docs/BUILDING.md) for the engine download helper and browser limits.
+See [building](docs/BUILDING.md) for bootstrap instructions and browser limits.
 
 Search a crawl you control:
 
@@ -42,6 +42,10 @@ cargo run -p quill-search -- query .quill/index.json 'your query'
 Crawls stay on the seed origin, obey a conservative robots policy, and stop at a
 fixed page limit. Search is entirely local after crawling. No commercial search
 provider is used. See [search](docs/SEARCH.md).
+
+On managed computers, an extension policy may block the Quill shell. The launcher
+then clearly reports a homepage-only fallback: browsing still works, but Quill URL
+cleaning and local new-tab search do not. It never overrides administrator policy.
 
 ## Status
 
@@ -57,7 +61,7 @@ provider is used. See [search](docs/SEARCH.md).
 | Independent Quill packages | Not built or signed |
 
 [Architecture](docs/ARCHITECTURE.md) · [Privacy](docs/PRIVACY-PRINCIPLES.md) ·
-[Threat model](docs/THREAT-MODEL.md) · [Contributing](CONTRIBUTING.md)
+[Threat model](docs/THREAT-MODEL.md) · [Measurements](docs/PERFORMANCE.md) · [Contributing](CONTRIBUTING.md)
 
 Quill-owned source and supplied branding are distributed under [MPL-2.0](LICENSE).
 Mozilla source retains its own notices; Mozilla trademarks are not licensed here.

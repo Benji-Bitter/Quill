@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Quill privacy settings</title><link rel="stylesheet" href="newtab.css"></head><body><main>
+<h1>Privacy settings</h1>
+<p><label><input style="width:auto" type="checkbox" id="cleanNavigation">Remove common tracking parameters from navigation URLs</label></p>
+<p>Applies to top-level GET requests. Turn this off if a signed link or a site breaks.</p>
+<p><label><input style="width:auto" type="checkbox" id="localSearch">Search this profile's history and bookmarks from new tabs</label></p>
+<p>Queries stay in the browser. No public search provider is configured.</p>
+<p>Use Firefox's settings to delete browsing data, manage site permissions, or change tracking protection. Quill's Rust vault is not connected to Firefox's password manager.</p>
+<p>Quill update checking: Off. The prototype has no update network client.</p>
+<p>This development extension cannot audit all engine connections, DNS, WebRTC or OS traffic. Private windows use Firefox's built-in page; the extension does not run there.</p>
+<p id="status" role="status"></p><script src="options.js"></script></main></body></html>
