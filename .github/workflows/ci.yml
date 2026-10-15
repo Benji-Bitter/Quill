@@ -29,6 +29,8 @@ jobs:
         if: runner.os == 'macOS'
       - run: python tools/test_search_app.py
         if: runner.os == 'macOS'
+      - run: python tools/test_browser_view.py
+        if: runner.os == 'macOS'
   browser:
     runs-on: ubuntu-22.04
     steps:

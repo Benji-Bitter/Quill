@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the standalone macOS search app; no server or browser runtime."""
+"""Build the standalone macOS search app; local search and embedded system WebKit."""
 import argparse
 import plistlib
 import shutil

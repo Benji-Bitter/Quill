@@ -1,10 +1,22 @@
 # Quill Search for macOS
 
 Quill Search runs without a server. A native SwiftUI window calls Quill's Rust
-executable through local pipes. The app has no webview, Firefox dependency,
+executable through local pipes. The app has no Firefox dependency,
 listening socket or hosted search provider. The Rust engine performs direct HTTPS
 fetching only when a crawl is requested. Queries use only the on-device index.
-Clicking a result opens its URL in the user's default browser.
+Clicking a result opens its URL inside Quill using macOS system WebKit. The embedded
+browser supports an editable address bar, back/forward, reload/stop and return to
+search. Links requesting a new window open in the same view. Search results remain
+in memory when returning from a website.
+
+Websites execute JavaScript and make their own network requests inside WebKit;
+this traffic is separate from the offline search engine. WebKit's normal TLS
+validation remains enabled. Cookies and website storage use a nonpersistent session,
+not Safari's profile; visiting pages does not add them to the search index. Returning
+to search unloads the current page to stop hidden scripts and media. Camera and
+microphone are denied. Downloads, extension support, multiple tabs and persistent
+site logins are not implemented in this embedded browser. This is a macOS WebKit
+integration, separate from the repository's experimental Gecko host.
 
 Build with Rust, Python 3.11+ and Xcode command-line tools:
 
@@ -62,6 +74,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 python3 tools/search_demo.py
 python3 tools/build_search_app.py
 python3 tools/test_search_app.py
+python3 tools/test_browser_view.py
 ```
 
 The native smoke test calls the actual Rust engine, checks real ranked results and

@@ -85,7 +85,7 @@ struct SearchView: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("\(model.stats.documents) pages from \(model.stats.origins.count) websites")
                                 .font(.system(size: 13, weight: .medium))
-                            Text("Search works offline. Open a result to visit its source in your default browser.")
+                            Text("Search works offline. Open a result to read its source inside Quill.")
                                 .font(.system(size: 12)).foregroundStyle(.secondary)
                         }
                     }

@@ -24,7 +24,9 @@ python3 tools/build_search_app.py --open
 The app is built at `dist/Quill Search.app`. Open **Sources**, enter website URLs,
 and select **Crawl websites**. Search the downloaded pages from the main window.
 Results include source links, snippets and inspectable ranking details. The app
-supports local index export and deletion. No Firefox installation is needed.
+supports local index export and deletion. Results open inside Quill with an address
+bar and back/forward/reload controls, using macOS WebKit. No Firefox installation
+is needed.
 
 Search uses the same BM25 rules for every publisher, with no paid or political
 boosts. Source selection and ranking choices still introduce bias; Quill does not

@@ -6,7 +6,7 @@ struct QuillSearchApp: App {
     @StateObject private var model = SearchModel()
     var body: some Scene {
         WindowGroup("Quill Search") {
-            SearchView(model: model)
+            QuillWorkspace(search: model)
                 .frame(minWidth: 760, minHeight: 560)
                 .onAppear { NSApp.activate(ignoringOtherApps: true) }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in model.stop() }
@@ -17,4 +17,3 @@ struct QuillSearchApp: App {
         }
     }
 }
-
