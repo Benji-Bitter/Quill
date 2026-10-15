@@ -32,6 +32,7 @@ struct EngineFailure: LocalizedError {
 
 @MainActor
 final class SearchModel: ObservableObject {
+    @Published var sources = ""
     @Published var query = ""
     @Published var searchedQuery = ""
     @Published var hits: [SearchHit] = []
@@ -57,6 +58,9 @@ final class SearchModel: ObservableObject {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                                    attributes: [.posixPermissions: 0o700])
         } catch { self.error = error.localizedDescription }
+        sources = (try? String(contentsOf: directory.appendingPathComponent("sources.txt"), encoding: .utf8)) ?? ""
+        if let data = try? Data(contentsOf: directory.appendingPathComponent("crawl-log.json")),
+           let saved = try? JSONDecoder().decode([String].self, from: data) { crawlLog = saved }
         Task { await refresh() }
     }
 
@@ -126,6 +130,10 @@ final class SearchModel: ObservableObject {
                 error = "Enter complete http:// or https:// URLs without credentials."; return
             }
         }
+        do {
+            try text.write(to: directory.appendingPathComponent("sources.txt"), atomically: true, encoding: .utf8)
+            sources = text
+        } catch { self.error = error.localizedDescription; return }
         crawling = true
         cancelled = false
         error = nil
@@ -147,6 +155,9 @@ final class SearchModel: ObservableObject {
                     if !cancelled { crawlLog.append("\(seed) — \(error.localizedDescription)") }
                 }
             }
+            do {
+                try JSONEncoder().encode(crawlLog).write(to: directory.appendingPathComponent("crawl-log.json"), options: .atomic)
+            } catch { self.error = error.localizedDescription }
             status = cancelled ? "Crawl stopped. Completed sites are saved." : "Crawl complete · \(stats.documents) searchable pages"
             crawling = false
             if !searchedQuery.isEmpty { search() }

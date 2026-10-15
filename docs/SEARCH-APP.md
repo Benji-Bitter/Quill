@@ -41,6 +41,8 @@ offline. A crawl can be stopped; completed sites remain saved, while the current
 site's incomplete crawl is discarded. Re-crawling refreshes matching page URLs.
 Pages no longer discovered remain in the index; automatic expiry is not implemented.
 The interface reports failures instead of substituting results from another engine.
+The most recently submitted source list and completed crawl log are saved locally
+and restored when the app restarts.
 Example sources are merely editable suggestions, not an endorsement or a ranking
 allowlist. Some sites block bots or change their robots policies.
 

@@ -37,7 +37,10 @@ struct SearchAppSmoke {
             model.search()
             while model.searching { try await Task.sleep(nanoseconds: 10_000_000) }
             precondition(model.hits.first?.title == "Rust ownership guide")
-            print("Native crawl → persisted index → ranked results passed")
+            let reopened = SearchModel(storage: temporary, engine: URL(fileURLWithPath: args[1]))
+            precondition(reopened.sources == args[4], "Crawl sources must survive restarting the app")
+            precondition(!reopened.crawlLog.isEmpty, "Crawl outcomes must survive restarting the app")
+            print("Native crawl → persisted index → ranked results and saved sources passed")
         }
     }
 }

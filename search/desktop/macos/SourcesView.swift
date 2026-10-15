@@ -3,7 +3,6 @@ import SwiftUI
 struct SourcesView: View {
     @ObservedObject var model: SearchModel
     @Environment(\.dismiss) var dismiss
-    @State private var seeds = ""
     @State private var pages = 20
     @State private var confirmDelete = false
     var body: some View {
@@ -15,12 +14,12 @@ struct SourcesView: View {
             }
             Text("Add website URLs, one per line. Crawling contacts those sites directly from your Mac. Each crawl stays on its starting website and respects robots exclusions.")
                 .font(.system(size: 13)).foregroundStyle(.secondary)
-            TextEditor(text: $seeds).font(.system(size: 13, design: .monospaced))
+            TextEditor(text: $model.sources).font(.system(size: 13, design: .monospaced))
                 .frame(height: 100).padding(8).overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.3)))
                 .accessibilityLabel("Website URLs")
             HStack {
                 Button("Use example sources") {
-                    seeds = "https://science.nasa.gov/\nhttps://www.britannica.com/science/photosynthesis\nhttps://rust-lang.org/learn\nhttps://docs.python.org/3/tutorial/"
+                    model.sources = "https://science.nasa.gov/\nhttps://www.britannica.com/science/photosynthesis\nhttps://rust-lang.org/learn\nhttps://docs.python.org/3/tutorial/"
                 }
                 Spacer()
                 Picker("Pages per site", selection: $pages) {
@@ -36,8 +35,8 @@ struct SourcesView: View {
                 } else {
                     Text(model.status).font(.system(size: 12)).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Crawl websites") { model.collect(seeds, pages: pages) }
-                        .disabled(seeds.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button("Crawl websites") { model.collect(model.sources, pages: pages) }
+                        .disabled(model.sources.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
             if let error = model.error { Text(error).foregroundStyle(.red).font(.system(size: 12)) }
