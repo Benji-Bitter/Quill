@@ -25,6 +25,10 @@ jobs:
       - run: cargo build --workspace --locked
       - run: python -m unittest discover -s tests
       - run: python tools/search_demo.py
+      - run: python tools/build_search_app.py
+        if: runner.os == 'macOS'
+      - run: python tools/test_search_app.py
+        if: runner.os == 'macOS'
   browser:
     runs-on: ubuntu-22.04
     steps:

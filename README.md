@@ -5,16 +5,34 @@
 
 # Quill
 
-Web browser. Nothing else.
+Independent search, on your Mac.
 
-Quill is an early, open-source browser project built toward a Firefox-derived
-Gecko distribution. This repository contains Quill's code, not a vendored copy of
-Firefox. It is not yet a production browser or an independent public search service.
+Quill Search is a standalone native macOS app with its own Rust crawler, parser,
+inverted index and ranking engine. It fetches public websites directly and searches
+the saved index locally. No hosted backend, listening server, search API, ads or
+query uploads. Coverage is limited to the pages you crawl; this is not a worldwide
+web index.
 
-The first milestone includes an experimental Firefox development profile and
-extension, a bounded local crawler and custom inverted search index, URL privacy
-rules, an encrypted vault core, and offline signed-update verification. These
-components do not imply that a hardened Quill distribution exists.
+## Open Quill Search on macOS
+
+Install Xcode command-line tools, the pinned Rust toolchain and Python 3.11+:
+
+```sh
+python3 tools/build_search_app.py --open
+```
+
+The app is built at `dist/Quill Search.app`. Open **Sources**, enter website URLs,
+and select **Crawl websites**. Search the downloaded pages from the main window.
+Results include source links, snippets and inspectable ranking details. The app
+supports local index export and deletion. No Firefox installation is needed.
+
+Search uses the same BM25 rules for every publisher, with no paid or political
+boosts. Source selection and ranking choices still introduce bias; Quill does not
+claim to establish truth. See [standalone search](docs/SEARCH-APP.md).
+
+The repository also retains the earlier experimental Firefox browser host,
+privacy rules, encrypted vault core and signed-update verification library.
+A hardened Quill browser distribution is not yet built.
 
 ## Run
 
@@ -54,7 +72,7 @@ cleaning and local new-tab search do not. It never overrides administrator polic
 | Browsing | Experimental Firefox host: real tabs, HTTPS, navigation, history, bookmarks and existing Firefox tools |
 | Quill chrome | Development CSS, supplied branding, minimal extension new tab |
 | Privacy | Rust URL/rule core and development extension; no whole-engine network guarantee |
-| Search | Runnable controlled crawler, parser, persisted inverted index and lexical ranking |
+| Search | Native macOS UI, multi-site crawling, persisted custom index, lexical ranking and score explanations |
 | Vault | Experimental authenticated encryption and local storage; no autofill or passkey store |
 | Updates | Offline signature/hash verification; no downloader or installer |
 | Distributed/semantic search, evidence | Design only |
