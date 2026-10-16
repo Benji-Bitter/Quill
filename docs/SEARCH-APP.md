@@ -36,7 +36,7 @@ the underlying Rust engine also builds on Windows and Linux.
 Open Sources and enter complete HTTP(S) URLs, one per line. Choose the page budget
 and start the crawl. The budget counts visited URLs, so redirects, exclusions and
 non-HTML pages can leave fewer indexed pages. Each seed stays on its origin;
-external links are not followed. Up to 100 seeds can be entered at once. Website
+external links are not followed. Up to 500 seeds can be entered at once. Website
 operators see the requesting IP address and QuillBot user agent.
 
 Search works after the first successful site completes and continues to work

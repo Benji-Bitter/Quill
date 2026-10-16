@@ -151,8 +151,8 @@ final class SearchModel: ObservableObject {
     func collect(_ text: String, pages: Int) {
         guard !crawling else { return }
         let seeds = text.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        guard !seeds.isEmpty, seeds.count <= 100 else {
-            error = "Enter between 1 and 100 website URLs."; return
+        guard !seeds.isEmpty, seeds.count <= 500 else {
+            error = "Enter between 1 and 500 website URLs."; return
         }
         for seed in seeds {
             guard let url = URL(string: seed), ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
