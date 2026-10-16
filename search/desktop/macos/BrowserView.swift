@@ -3,6 +3,7 @@ import WebKit
 
 @MainActor
 final class BrowserModel: NSObject, ObservableObject, WKNavigationDelegate, WKUIDelegate {
+    @Published var lastPage: URL?
     @Published var visible = false
     @Published var address = ""
     @Published var canGoBack = false
@@ -69,7 +70,20 @@ final class BrowserModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
         open(url)
     }
 
+    func back() {
+        if canGoBack, let previous = webView.backForwardList.backItem?.url, Self.accepts(previous) {
+            webView.goBack()
+        } else { returnToSearch() }
+    }
+
+    func forward() {
+        if !visible, let lastPage { open(lastPage) }
+        else { webView.goForward() }
+    }
+
     func returnToSearch() {
+        if let url = webView.url, Self.accepts(url) { lastPage = url }
+
         webView.stopLoading()
         // Release page scripts/media rather than leave a hidden website running.
         webView.loadHTMLString("", baseURL: nil)
@@ -119,29 +133,13 @@ struct BrowserSurface: NSViewRepresentable {
 
 struct BrowserView: View {
     @ObservedObject var model: BrowserModel
-    @FocusState private var addressFocused: Bool
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 16) {
-                Button("Search", systemImage: "magnifyingglass", action: model.returnToSearch)
-                Button { model.webView.goBack() } label: { Image(systemName: "chevron.left") }
-                    .disabled(!model.canGoBack).help("Back").accessibilityLabel("Back")
-                Button { model.webView.goForward() } label: { Image(systemName: "chevron.right") }
-                    .disabled(!model.canGoForward).help("Forward").accessibilityLabel("Forward")
-                Button {
-                    if model.loading { model.webView.stopLoading() } else { model.webView.reload() }
-                } label: { Image(systemName: model.loading ? "xmark" : "arrow.clockwise") }
-                    .accessibilityLabel(model.loading ? "Stop loading" : "Reload")
-                TextField("Website address", text: $model.address).textFieldStyle(.roundedBorder)
-                    .focused($addressFocused).onSubmit { model.navigate() }
-                Button("Go", action: model.navigate)
-            }.buttonStyle(.plain).padding(14)
             if model.loading { ProgressView().progressViewStyle(.linear).frame(height: 2) }
             if let error = model.error {
                 HStack { Text(error).textSelection(.enabled); Spacer(); Button("Retry") { model.navigate() } }
                     .font(.system(size: 12)).padding(12).background(Color.red.opacity(0.08))
             }
-            Divider()
             BrowserSurface(model: model)
         }
     }
@@ -150,11 +148,70 @@ struct BrowserView: View {
 struct QuillWorkspace: View {
     @ObservedObject var search: SearchModel
     @StateObject private var browser = BrowserModel()
+    @Environment(\.colorScheme) private var scheme
+    @State private var location = ""
+    @FocusState private var locationFocused: Bool
+
+    private func submit() {
+        let input = location.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !input.isEmpty else { return }
+        let looksLikeAddress = !input.contains(where: { $0.isWhitespace }) &&
+            (input.contains("://") || input.contains(".") || input.hasPrefix("localhost"))
+        if looksLikeAddress {
+            browser.address = input
+            browser.navigate()
+        } else {
+            browser.returnToSearch()
+            search.query = input
+            search.search()
+        }
+        locationFocused = false
+    }
+
     var body: some View {
-        Group {
+        VStack(spacing: 0) {
+            HStack(spacing: 12) {
+                Button(action: browser.back) { Label("Back", systemImage: "chevron.left") }
+                    .disabled(!browser.visible).keyboardShortcut("[", modifiers: .command)
+                Button(action: browser.forward) { Image(systemName: "chevron.right") }
+                    .disabled(browser.visible ? !browser.canGoForward : browser.lastPage == nil)
+                    .accessibilityLabel(browser.visible ? "Forward" : "Reopen last page")
+                    .help(browser.visible ? "Forward (⌘])" : "Reopen last page (⌘])")
+                    .keyboardShortcut("]", modifiers: .command)
+                Button("Results", systemImage: "house", action: browser.returnToSearch)
+                    .disabled(!browser.visible).keyboardShortcut("h", modifiers: [.command, .shift])
+                HStack(spacing: 8) {
+                    Button {
+                        locationFocused = true
+                        DispatchQueue.main.async { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: nil, from: nil) }
+                    } label: { Image(systemName: "magnifyingglass") }
+                        .keyboardShortcut("l", modifiers: .command).help("Focus address or search (⌘L)")
+                    TextField("Search your index or enter a website", text: $location)
+                        .textFieldStyle(.plain).focused($locationFocused).onSubmit(submit)
+                        .accessibilityLabel("Search or website address")
+                    Button(action: submit) { Image(systemName: "arrow.right.circle") }.accessibilityLabel("Go")
+                }.padding(10).background(scheme == .dark ? Color(red: 0.15, green: 0.15, blue: 0.145) : Color.white).clipShape(RoundedRectangle(cornerRadius: 9))
+                Button {
+                    if browser.loading { browser.webView.stopLoading() }
+                    else { browser.webView.reload() }
+                } label: { Image(systemName: browser.loading ? "xmark" : "arrow.clockwise") }
+                    .disabled(!browser.visible).keyboardShortcut("r", modifiers: .command)
+                    .accessibilityLabel(browser.loading ? "Stop" : "Reload").help("Reload (⌘R)")
+            }.buttonStyle(.borderless).padding(.horizontal, 18).padding(.vertical, 10)
+                .foregroundStyle(scheme == .dark ? Color.white : Color.black)
+                .background(scheme == .dark ? Color(red: 0.09, green: 0.09, blue: 0.085) : Color(red: 0.975, green: 0.97, blue: 0.95))
+            Divider()
             if browser.visible { BrowserView(model: browser) }
             else { SearchView(model: search) }
-        }.environment(\.openURL, OpenURLAction { url in
+        }
+        .onChange(of: browser.address) { _, value in
+            if browser.visible && !locationFocused { location = value }
+        }
+        .onChange(of: browser.visible) { _, visible in
+            if !visible { location = search.query }
+        }
+        .environment(\.openURL, OpenURLAction { url in
+            locationFocused = false
             browser.open(url)
             return .handled
         })

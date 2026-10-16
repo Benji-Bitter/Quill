@@ -5,8 +5,11 @@ executable through local pipes. The app has no Firefox dependency,
 listening socket or hosted search provider. The Rust engine performs direct HTTPS
 fetching only when a crawl is requested. Queries use only the on-device index.
 Clicking a result opens its URL inside Quill using macOS system WebKit. The embedded
-browser supports an editable address bar, back/forward, reload/stop and return to
-search. Links requesting a new window open in the same view. Search results remain
+browser has a navigation bar on both search and website screens. Its combined
+field accepts website addresses or local searches; Back, Forward, Results and
+Reload/Stop remain in predictable positions. Forward from search reopens the last
+page (reloading it). Shortcuts: ⌘L focuses the field, ⌘R reloads, ⌘[ / ⌘] navigate,
+and ⌘⇧H returns to results. Links requesting a new window open in the same view. Search results remain
 in memory when returning from a website.
 
 Websites execute JavaScript and make their own network requests inside WebKit;

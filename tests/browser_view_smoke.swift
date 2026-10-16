@@ -53,6 +53,11 @@ import WebKit
         let afterReload = try await browser.webView.evaluateJavaScript("document.body.dataset.load") as? String
         precondition(beforeReload != afterReload, "Reload must fetch a new document")
         print("Reload passed")
+        browser.returnToSearch()
+        precondition(!browser.visible && browser.lastPage?.absoluteString == base + "/two")
+        browser.forward()
+        try await wait { browser.visible && browser.webView.title == "Two" && !browser.webView.isLoading }
+        print("Return to results and reopen last page passed")
         browser.open(URL(string: CommandLine.arguments[2])!)
         try await wait { browser.error != nil }
         browser.returnToSearch()
