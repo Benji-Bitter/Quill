@@ -45,6 +45,8 @@ pub struct Hit {
     pub score: f64,
     pub matched_terms: Vec<String>,
     pub repetition_factor: f64,
+    pub fetched_at: Option<u64>,
+    pub published_at: Option<String>,
 }
 
 impl Index {
@@ -94,6 +96,11 @@ impl Index {
         }
         if document.text.chars().count() > MAX_TEXT_CHARS
             || document.title.chars().count() > 512
+            || document
+                .published_at
+                .as_ref()
+                .is_some_and(|s| s.chars().count() > 128)
+            || document.fetched_at.is_some_and(|t| t > 253_402_300_799)
             || document.url.len() > 8192
         {
             return Err(invalid("document exceeds limits"));
@@ -199,6 +206,8 @@ impl Index {
                         .cloned()
                         .collect(),
                     repetition_factor: self.quality[id],
+                    fetched_at: d.fetched_at,
+                    published_at: d.published_at.clone(),
                 }
             })
             .collect()
@@ -257,6 +266,8 @@ mod tests {
             url: format!("https://example.org/{url}"),
             title: title.into(),
             text: text.into(),
+            fetched_at: None,
+            published_at: None,
         }
     }
     #[test]

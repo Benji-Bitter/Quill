@@ -8,6 +8,16 @@ struct SearchHit: Decodable, Identifiable {
     let score: Double
     let matched_terms: [String]
     let repetition_factor: Double
+    let fetched_at: Double?
+    let published_at: String?
+    var id: String { url }
+}
+
+struct SourceNote: Decodable, Identifiable {
+    let name: String
+    let url: String
+    let category: String
+    let source_information: String
     var id: String { url }
 }
 
@@ -22,6 +32,7 @@ struct CrawlReport: Decodable {
     let fetched: Int?
     let denied: Int?
     let skipped: Int?
+    let time_limited: Bool?
     let error: String?
 }
 
@@ -32,6 +43,8 @@ struct EngineFailure: LocalizedError {
 
 @MainActor
 final class SearchModel: ObservableObject {
+    @Published var sourceNotes: [SourceNote] = []
+    @Published var excludedDomains = ""
     @Published var sources = ""
     @Published var query = ""
     @Published var searchedQuery = ""
@@ -58,9 +71,12 @@ final class SearchModel: ObservableObject {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true,
                                                    attributes: [.posixPermissions: 0o700])
         } catch { self.error = error.localizedDescription }
+        excludedDomains = (try? String(contentsOf: directory.appendingPathComponent("excluded-domains.txt"), encoding: .utf8)) ?? ""
         sources = (try? String(contentsOf: directory.appendingPathComponent("sources.txt"), encoding: .utf8)) ?? ""
         if let data = try? Data(contentsOf: directory.appendingPathComponent("crawl-log.json")),
            let saved = try? JSONDecoder().decode([String].self, from: data) { crawlLog = saved }
+        if let data = try? Data(contentsOf: directory.appendingPathComponent("source-catalog.json")),
+           let saved = try? JSONDecoder().decode([SourceNote].self, from: data) { sourceNotes = saved }
         Task { await refresh() }
     }
 
@@ -118,11 +134,25 @@ final class SearchModel: ObservableObject {
         }
     }
 
+    @discardableResult
+    func saveExclusions() -> Bool {
+        let domains = excludedDomains.split(whereSeparator: { $0.isNewline }).map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty && !$0.hasPrefix("#") }
+        guard excludedDomains.utf8.count <= 65_536, domains.count <= 200, domains.allSatisfy({ $0.count <= 253 && $0.range(of: "^[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)+$", options: .regularExpression) != nil }) else {
+            error = "Use plain domains, one per line, without URLs or wildcards."; return false
+        }
+        do {
+            try excludedDomains.write(to: directory.appendingPathComponent("excluded-domains.txt"), atomically: true, encoding: .utf8)
+            error = nil
+            Task { await refresh(); if !searchedQuery.isEmpty { search() } }
+            return true
+        } catch { self.error = error.localizedDescription; return false }
+    }
+
     func collect(_ text: String, pages: Int) {
         guard !crawling else { return }
         let seeds = text.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        guard !seeds.isEmpty, seeds.count <= 20 else {
-            error = "Enter between 1 and 20 website URLs."; return
+        guard !seeds.isEmpty, seeds.count <= 100 else {
+            error = "Enter between 1 and 100 website URLs."; return
         }
         for seed in seeds {
             guard let url = URL(string: seed), ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
@@ -134,6 +164,7 @@ final class SearchModel: ObservableObject {
             try text.write(to: directory.appendingPathComponent("sources.txt"), atomically: true, encoding: .utf8)
             sources = text
         } catch { self.error = error.localizedDescription; return }
+        guard saveExclusions() else { return }
         crawling = true
         cancelled = false
         error = nil
@@ -148,7 +179,7 @@ final class SearchModel: ObservableObject {
                     if let failure = report.error {
                         crawlLog.append("\(seed) — \(failure)")
                     } else {
-                        crawlLog.append("\(seed) — \(report.added ?? 0) added, \(report.fetched ?? 0) fetched, \(report.denied ?? 0) robots exclusions, \(report.skipped ?? 0) skipped")
+                        crawlLog.append("\(seed) — \(report.added ?? 0) added, \(report.fetched ?? 0) fetched, \(report.denied ?? 0) robots exclusions, \(report.skipped ?? 0) skipped" + (report.time_limited == true ? " · time budget reached" : ""))
                     }
                     await refresh()
                 } catch {

@@ -40,7 +40,16 @@ struct SearchAppSmoke {
             let reopened = SearchModel(storage: temporary, engine: URL(fileURLWithPath: args[1]))
             precondition(reopened.sources == args[4], "Crawl sources must survive restarting the app")
             precondition(!reopened.crawlLog.isEmpty, "Crawl outcomes must survive restarting the app")
-            print("Native crawl → persisted index → ranked results and saved sources passed")
+            precondition(model.hits.first?.fetched_at != nil, "New crawl results need a fetch timestamp")
+            model.excludedDomains = "127.0.0.1"
+            precondition(model.saveExclusions())
+            await model.refresh()
+            precondition(model.stats.documents == 0, "Excluded origins must not appear in stats")
+            model.query = "rust ownership"
+            model.search()
+            while model.searching { try await Task.sleep(nanoseconds: 10_000_000) }
+            precondition(model.hits.isEmpty, "Excluded origins must not appear in search")
+            print("Native crawl, persistence, provenance and exclusions passed")
         }
     }
 }

@@ -1,3 +1,4 @@
+pub mod exclusions;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use url::Url;
@@ -27,6 +28,10 @@ pub struct Document {
     pub url: String,
     pub title: String,
     pub text: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fetched_at: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub published_at: Option<String>,
 }
 
 pub fn canonicalize(input: &str) -> Result<Url> {

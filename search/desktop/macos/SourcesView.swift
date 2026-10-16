@@ -3,6 +3,7 @@ import SwiftUI
 struct SourcesView: View {
     @ObservedObject var model: SearchModel
     @Environment(\.dismiss) var dismiss
+    @Environment(\.openURL) var openURL
     @State private var pages = 20
     @State private var confirmDelete = false
     var body: some View {
@@ -40,6 +41,15 @@ struct SourcesView: View {
                 }
             }
             if let error = model.error { Text(error).foregroundStyle(.red).font(.system(size: 12)) }
+            DisclosureGroup("Excluded domains") {
+                TextEditor(text: $model.excludedDomains).font(.system(size: 12, design: .monospaced))
+                    .frame(height: 60).accessibilityLabel("Excluded domains")
+                HStack {
+                    Text("Applies to crawling and search; does not block browsing.").font(.caption).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Save exclusions") { model.saveExclusions() }.disabled(model.crawling)
+                }
+            }
             Divider()
             HStack {
                 Text("\(model.stats.documents) indexed pages").font(.headline)
@@ -50,6 +60,25 @@ struct SourcesView: View {
             }
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
+                    if !model.sourceNotes.isEmpty {
+                        DisclosureGroup("Source selection notes") {
+                            Text("Categories describe subject matter, not factual accuracy. Check reporting against its evidence and original sources.")
+                                .foregroundStyle(.secondary).padding(.vertical, 8)
+                            ForEach(model.sourceNotes) { source in
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text(source.name).fontWeight(.medium)
+                                        Spacer()
+                                        Button("Source information") {
+                                            if let url = URL(string: source.source_information) { dismiss(); openURL(url) }
+                                        }
+                                    }
+                                    Text(source.category).foregroundStyle(.secondary)
+                                }.padding(.vertical, 4)
+                            }
+                        }
+                        Divider()
+                    }
                     ForEach(model.stats.origins.keys.sorted(), id: \.self) { origin in
                         HStack { Text(origin); Spacer(); Text("\(model.stats.origins[origin] ?? 0) pages").foregroundStyle(.secondary) }
                     }

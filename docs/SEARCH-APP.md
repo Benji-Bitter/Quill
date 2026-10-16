@@ -36,7 +36,7 @@ the underlying Rust engine also builds on Windows and Linux.
 Open Sources and enter complete HTTP(S) URLs, one per line. Choose the page budget
 and start the crawl. The budget counts visited URLs, so redirects, exclusions and
 non-HTML pages can leave fewer indexed pages. Each seed stays on its origin;
-external links are not followed. Up to 20 seeds can be entered at once. Website
+external links are not followed. Up to 100 seeds can be entered at once. Website
 operators see the requesting IP address and QuillBot user agent.
 
 Search works after the first successful site completes and continues to work
@@ -54,6 +54,10 @@ user-only directory. Export copies the public-page index to a chosen file. Delet
 removes the active index; it does not erase exported copies, backups or filesystem
 history. No browsing history, account credentials or search-query history is stored
 by this app. Do not crawl private token-bearing URLs you would not want in an export.
+
+Source selection notes can link to publisher information without endorsing every
+claim. Excluded domains are editable in Sources and apply to both crawling and
+search results. See [source selection and evidence](SOURCE-SELECTION.md).
 
 ## Ranking and coverage
 

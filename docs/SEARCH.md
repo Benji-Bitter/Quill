@@ -25,16 +25,23 @@ navigation policy and is deliberately not applied to crawler identity.
 most 30 URLs through the CLI (library maximum 100). It requests at most twice a
 second, checks TLS certificates, disables implicit proxies and redirects, and
 follows discovered redirects only on the seed origin after another robots check.
-Robots 404/410 allow crawling; other non-200 responses fail closed. The largest declared Crawl-delay is respected conservatively across all user-agent
+Robots 404/410 allow crawling. Up to five same-origin robots redirects are followed;
+off-origin redirects, HTML responses and other error statuses fail closed. The largest declared Crawl-delay is respected conservatively across all user-agent
 groups; invalid values or delays over 30 seconds cause refusal.
-Robots are bounded to 512 KiB; HTML to 2 MiB; each request has a 15-second timeout.
-Compressed content is rejected to avoid decompression bombs. UTF-8 HTML only.
+TLS uses Rustls with the operating system certificate roots. Certificate errors
+fail closed and are included in crawl diagnostics. Robots are bounded to 512 KiB; HTML to 2 MiB; each request has a 15-second timeout.
+The crawler stops scheduling page requests after a 60-second budget and saves
+completed pages; an in-flight request may finish later. Partial collection reports
+include `time_limited`. Compressed content is rejected to avoid decompression bombs. UTF-8 HTML only.
 
 `parser` uses an HTML5 parser, extracts title and main/article/body text, excludes
 scripts/navigation and hidden elements, and collects bounded links. Same-origin
 canonical hints are accepted; off-origin hints are ignored. Meta robots and
 X-Robots-Tag exclusions are respected conservatively. No JavaScript executes.
-CSS visibility, sophisticated extraction and language identification are not built.
+Common bot-challenge page titles are rejected; this does not detect all interstitials.
+Main/article links are queued first. New documents retain fetch timestamps and
+publisher-supplied publication dates when present. CSS visibility, sophisticated
+extraction and language identification are not built.
 
 `index` stores document IDs, body positions and title term frequencies in a custom
 inverted structure. Normalized exact content duplicates and duplicate canonical
@@ -86,3 +93,6 @@ lineage, uncertainty and provenance locally. Planned statuses include verified,
 strongly supported, supported, uncertain, disputed, misleading, contradicted,
 fabricated, unverifiable and opinion. A status is a traceable assessment, never a
 replacement for the evidence. No classifier is implemented: don't trust us; check us.
+
+See [source selection and evidence](SOURCE-SELECTION.md) for local exclusions,
+metadata and the limits of treating search results as factual evidence.

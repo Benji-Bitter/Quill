@@ -1,4 +1,4 @@
-use quill_search_common::{Result, invalid};
+use quill_search_common::{Result, exclusions, invalid};
 use quill_search_index::Index;
 use std::{path::Path, time::Instant};
 
@@ -13,12 +13,38 @@ fn writer_lock(path: &Path) -> Result<std::fs::File> {
     Ok(file)
 }
 
+fn load_index(path: &Path) -> Result<Index> {
+    let mut index = Index::load(path)?;
+    let domains = exclusions::read(path)?;
+    let remove: Vec<_> = index
+        .documents()
+        .iter()
+        .filter(|d| exclusions::matches(&d.url, &domains))
+        .map(|d| d.url.clone())
+        .collect();
+    if !remove.is_empty() {
+        index.remove_urls(&remove)?;
+    }
+    Ok(index)
+}
+
+fn crawl_allowed(
+    path: &Path,
+    seed: &str,
+    pages: usize,
+) -> Result<(Index, quill_search_crawler::Report)> {
+    if exclusions::matches(seed, &exclusions::read(path)?) {
+        return Err(invalid("source excluded by your local domain settings"));
+    }
+    quill_search_crawler::crawl(seed, pages)
+}
+
 fn run() -> Result<()> {
     let args: Vec<_> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("crawl") if args.len() == 3 => {
             let _lock = writer_lock(Path::new(&args[1]))?;
-            let (index, report) = quill_search_crawler::crawl(&args[2], 30)?;
+            let (index, report) = crawl_allowed(Path::new(&args[1]), &args[2], 30)?;
             index.save(Path::new(&args[1]))?;
             println!(
                 "Fetched {}, indexed {}, denied {}, skipped {}",
@@ -30,18 +56,18 @@ fn run() -> Result<()> {
             let _lock = writer_lock(path)?;
             let pages: usize = args[2].parse().map_err(|_| invalid("invalid page limit"))?;
             let mut index = if path.exists() {
-                Index::load(path)?
+                load_index(path)?
             } else {
                 Index::default()
             };
             for seed in &args[3..] {
-                match quill_search_crawler::crawl(seed, pages) {
+                match crawl_allowed(path, seed, pages) {
                     Ok((crawled, report)) => {
                         let added = index.merge(crawled)?;
                         index.save(path)?;
                         println!(
                             "{}",
-                            serde_json::json!({"seed":seed,"added":added,"total":index.len(),"fetched":report.fetched,"denied":report.denied,"skipped":report.skipped})
+                            serde_json::json!({"seed":seed,"added":added,"total":index.len(),"fetched":report.fetched,"denied":report.denied,"skipped":report.skipped,"time_limited":report.time_limited})
                         );
                     }
                     Err(error) => println!(
@@ -54,7 +80,7 @@ fn run() -> Result<()> {
         Some("remove") if args.len() >= 3 => {
             let path = Path::new(&args[1]);
             let _lock = writer_lock(path)?;
-            let mut index = Index::load(path)?;
+            let mut index = load_index(path)?;
             let removed = index.remove_urls(&args[2..])?;
             index.save(path)?;
             println!(
@@ -64,7 +90,7 @@ fn run() -> Result<()> {
         }
         Some("stats") if args.len() == 2 => {
             let index = if Path::new(&args[1]).exists() {
-                Index::load(Path::new(&args[1]))?
+                load_index(Path::new(&args[1]))?
             } else {
                 Index::default()
             };
@@ -80,7 +106,7 @@ fn run() -> Result<()> {
             );
         }
         Some("query") if args.len() >= 3 => {
-            let index = Index::load(Path::new(&args[1]))?;
+            let index = load_index(Path::new(&args[1]))?;
             println!(
                 "{}",
                 serde_json::to_string_pretty(&index.query(&args[2..].join(" "), 10))?
@@ -88,7 +114,7 @@ fn run() -> Result<()> {
         }
         Some("bench") if args.len() >= 3 => {
             let start = Instant::now();
-            let index = Index::load(Path::new(&args[1]))?;
+            let index = load_index(Path::new(&args[1]))?;
             let load = start.elapsed();
             let query = args[2..].join(" ");
             let mut samples = Vec::new();
@@ -124,6 +150,26 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn exclusions_filter_saved_results_and_stop_crawls_before_network() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.json");
+        let mut index = Index::default();
+        index
+            .insert(quill_search_common::Document {
+                url: "https://example.org/story".into(),
+                title: "Story".into(),
+                text: "sample reporting".into(),
+                fetched_at: Some(123),
+                published_at: None,
+            })
+            .unwrap();
+        index.save(&path).unwrap();
+        std::fs::write(path.with_file_name("excluded-domains.txt"), "example.org\n").unwrap();
+        assert!(load_index(&path).unwrap().query("reporting", 10).is_empty());
+        let result = crawl_allowed(&path, "https://www.example.org/", 1);
+        assert!(matches!(result, Err(error) if error.to_string().contains("source excluded")));
+    }
     #[test]
     fn writers_are_exclusive_and_release_on_drop() {
         let dir = tempfile::tempdir().unwrap();

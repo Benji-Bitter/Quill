@@ -13,13 +13,25 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class FixtureHandler(SimpleHTTPRequestHandler):
     requests = []
+    robots_redirect = None
 
     def log_message(self, *_):
         pass
 
     def do_GET(self):
         self.requests.append(self.path)
-        if self.path == "/redirect":
+        if self.path == "/robots.txt" and self.robots_redirect:
+            self.send_response(302)
+            self.send_header("Location", self.robots_redirect)
+            self.end_headers()
+        elif self.path == "/robots-policy.txt":
+            data = (ROOT / "tests/fixtures/site/robots.txt").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/plain")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+        elif self.path == "/redirect":
             self.send_response(302)
             self.send_header("Location", "https://example.com/must-not-fetch")
             self.end_headers()
@@ -57,9 +69,19 @@ def run_demo(index_path=None):
             assert "/not-followed" not in FixtureHandler.requests
             assert "tracking_secret" not in path.read_text()
             assert not json.loads(subprocess.check_output([str(binary), "query", str(path), "secretword"], text=True))
+            FixtureHandler.robots_redirect = "/robots-policy.txt"
+            FixtureHandler.requests = []
+            subprocess.run([str(binary), "crawl", str(Path(temporary) / "redirect-index.json"), seed], check=True, capture_output=True)
+            assert "/robots-policy.txt" in FixtureHandler.requests
+            assert "/private.html" not in FixtureHandler.requests
+            FixtureHandler.robots_redirect = "https://example.com/robots.txt"
+            rejected = subprocess.run([str(binary), "crawl", str(Path(temporary) / "rejected-index.json"), seed], capture_output=True, text=True)
+            assert rejected.returncode != 0 and "leaves the seed origin" in rejected.stderr
+            FixtureHandler.robots_redirect = None
             print(output)
             print("Search acceptance passed: crawl, robots, canonicalization, deduplication, ranking, persistence, limits.")
     finally:
+        FixtureHandler.robots_redirect = None
         server.shutdown()
         server.server_close()
         thread.join()

@@ -24,6 +24,20 @@ pub fn parse(url: &Url, bytes: &[u8]) -> Result<Page> {
         .next()
         .map(|e| e.text().collect::<String>())
         .unwrap_or_default();
+    if [
+        "just a moment...",
+        "access denied",
+        "attention required! | cloudflare",
+        "robot check",
+        "verify you are human",
+    ]
+    .contains(&title.trim().to_ascii_lowercase().as_str())
+    {
+        return Err(invalid("access challenge is not an article"));
+    }
+    let published = html.select(&select("meta[property='article:published_time'], meta[name='date'], meta[itemprop='datePublished']"))
+        .find_map(|e| e.value().attr("content"))
+        .map(|s| s.chars().take(128).collect());
     let root = html
         .select(&select("main, article"))
         .next()
@@ -60,7 +74,14 @@ pub fn parse(url: &Url, bytes: &[u8]) -> Result<Page> {
         canonical = canonicalize(candidate.as_str())?;
     }
     let mut links = Vec::new();
-    for element in html.select(&select("a[href]")).take(1000) {
+    let article_links = select("main a[href], article a[href]");
+    let all_links = select("a[href]");
+    let mut seen = std::collections::BTreeSet::new();
+    for element in html
+        .select(&article_links)
+        .chain(html.select(&all_links))
+        .take(2000)
+    {
         if element.value().attr("rel").is_some_and(|r| {
             r.split_whitespace()
                 .any(|s| s.eq_ignore_ascii_case("nofollow"))
@@ -72,6 +93,8 @@ pub fn parse(url: &Url, bytes: &[u8]) -> Result<Page> {
             .attr("href")
             .and_then(|v| url.join(v).ok())
             .and_then(|u| canonicalize(u.as_str()).ok())
+            && seen.insert(link.as_str().to_owned())
+            && links.len() < 1000
         {
             links.push(link);
         }
@@ -95,6 +118,8 @@ pub fn parse(url: &Url, bytes: &[u8]) -> Result<Page> {
             url: canonical.into(),
             title: title.chars().take(512).collect(),
             text: body.chars().take(MAX_TEXT_CHARS).collect(),
+            fetched_at: None,
+            published_at: published,
         },
         links,
         noindex: directives.contains(&"noindex") || directives.contains(&"none"),
@@ -112,6 +137,23 @@ mod tests {
         assert_eq!(page.document.text, "Hello world link");
         assert_eq!(page.links[0].as_str(), "https://example.org/b");
         assert!(page.noindex);
+    }
+    #[test]
+    fn rejects_challenges_and_preserves_publisher_date() {
+        let url = Url::parse("https://example.org/").unwrap();
+        assert!(
+            parse(
+                &url,
+                b"<title>Just a moment...</title><body>Checking your browser</body>"
+            )
+            .is_err()
+        );
+        let page = parse(&url, b"<meta property='article:published_time' content='2026-10-16T00:00:00Z'><nav><a href='/about'>About</a></nav><article>News<a href='/story'>Story</a></article>").unwrap();
+        assert_eq!(
+            page.document.published_at.as_deref(),
+            Some("2026-10-16T00:00:00Z")
+        );
+        assert_eq!(page.links[0].path(), "/story");
     }
     #[test]
     fn ignores_external_canonical_and_rejects_big_input() {

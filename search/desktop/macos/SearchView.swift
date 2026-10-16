@@ -120,7 +120,19 @@ struct ResultRow: View {
                 }.buttonStyle(.plain)
             }
             Text(hit.snippet).font(.system(size: 14)).lineSpacing(4).foregroundStyle(.secondary).textSelection(.enabled)
-            DisclosureGroup("Why this result") {
+            DisclosureGroup("Source details & ranking") {
+                if let fetched = hit.fetched_at {
+                    Text("Fetched: \(Date(timeIntervalSince1970: fetched).formatted(date: .abbreviated, time: .shortened))")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                } else {
+                    Text("Crawl date unavailable for this older entry.").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                if let published = hit.published_at {
+                    Text("Publisher-supplied date: \(published)").font(.system(size: 12)).foregroundStyle(.secondary)
+                }
+                Text("Content has not been independently fact-checked by Quill.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+
                 Text("Matched: \(hit.matched_terms.joined(separator: ", "))\nBM25 score: \(hit.score.formatted(.number.precision(.fractionLength(3)))) · repetition factor: \(hit.repetition_factor.formatted(.number.precision(.fractionLength(2))))\nTitle matches have 3× term weight. Scores measure text relevance, not truth.")
                     .font(.system(size: 12)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
             }.font(.system(size: 11)).foregroundStyle(.secondary)
