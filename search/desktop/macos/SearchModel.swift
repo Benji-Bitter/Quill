@@ -60,6 +60,15 @@ final class SearchModel: ObservableObject {
     private var crawlProcess: Process?
     private var cancelled = false
     private var searchVersion = 0
+    private var resultCache: [String: [SearchHit]] = [:]
+    private var cacheRevision = ""
+
+    private func indexRevision() -> String {
+        [index, directory.appendingPathComponent("excluded-domains.txt")].map { url in
+            let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+            return "\((attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0):\(attributes?[.size] ?? 0)"
+        }.joined(separator: "|")
+    }
     let directory: URL
     var index: URL { directory.appendingPathComponent("web-index.json") }
     let executable: URL
@@ -153,6 +162,11 @@ final class SearchModel: ObservableObject {
             hits = websites; searching = false; error = nil; elapsed = 0; return
         }
         guard stats.documents > 0 else { hits = []; searching = false; return }
+        let revision = indexRevision()
+        if revision != cacheRevision { resultCache.removeAll(); cacheRevision = revision }
+        if let cached = resultCache[text] {
+            hits = cached; searching = false; error = nil; elapsed = 0; return
+        }
         searching = true
         error = nil
         Task {
@@ -162,6 +176,10 @@ final class SearchModel: ObservableObject {
                 let results = try JSONDecoder().decode([SearchHit].self, from: data)
                 guard version == searchVersion else { return }
                 hits = results
+                if revision == indexRevision() {
+                    if resultCache.count >= 64 { resultCache.removeAll() }
+                    resultCache[text] = results
+                }
                 elapsed = Date().timeIntervalSince(start) * 1000
             } catch {
                 guard version == searchVersion else { return }

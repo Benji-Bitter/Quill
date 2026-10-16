@@ -17,7 +17,18 @@ import WebKit
         app.run()
     }
     @MainActor static func run() async throws {
-        let browser = BrowserModel()
+        let store = WKWebsiteDataStore(forIdentifier: UUID())
+        let browser = BrowserModel(dataStore: store)
+        precondition(browser.webView.configuration.websiteDataStore.isPersistent)
+        let cookie = HTTPCookie(properties: [.domain: "127.0.0.1", .path: "/", .name: "quill-test", .value: "saved", .expires: Date().addingTimeInterval(3600)])!
+        await store.httpCookieStore.setCookie(cookie)
+        let reopened = BrowserModel(dataStore: store)
+        let cookies = await reopened.webView.configuration.websiteDataStore.httpCookieStore.allCookies()
+        precondition(cookies.contains { $0.name == "quill-test" && $0.value == "saved" })
+        await reopened.clearWebsiteData()
+        let cleared = await store.httpCookieStore.allCookies()
+        precondition(cleared.isEmpty)
+        print("Persistent cookie store, shared browser cookies and clear website data passed")
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600), styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = browser.webView
         window.orderBack(nil)

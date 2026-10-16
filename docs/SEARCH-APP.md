@@ -14,11 +14,10 @@ in memory when returning from a website.
 
 Websites execute JavaScript and make their own network requests inside WebKit;
 this traffic is separate from the offline search engine. WebKit's normal TLS
-validation remains enabled. Cookies and website storage use a nonpersistent session,
-not Safari's profile; visiting pages does not add them to the search index. Returning
+validation remains enabled. Cookies, site storage and website caches persist in Quill’s own WebKit profile,
+separate from Safari. The toolbar’s shield button can clear all website data; visiting pages does not add them to the search index. Returning
 to search unloads the current page to stop hidden scripts and media. Camera and
-microphone are denied. Downloads, extension support, multiple tabs and persistent
-site logins are not implemented in this embedded browser. This is a macOS WebKit
+microphone are denied. Downloads, extension support, multiple tabs are not implemented in this embedded browser. This is a macOS WebKit
 integration, separate from the repository's experimental Gecko host.
 
 Build with Rust, Python 3.11+ and Xcode command-line tools:
@@ -95,3 +94,7 @@ Exact saved website names or domains (for example, `YouTube` or `youtube.com`)
 show a homepage shortcut instead of internal pages. These directory results are
 labeled separately from crawled content and respect saved domain exclusions.
 Longer topic queries continue searching indexed page text.
+
+Recent page-search results are cached in memory (up to 64 queries), invalidated
+when the index or exclusion file changes. Website shortcuts remain immediate.
+Subtle focus, hover and result transitions respect macOS Reduce Motion.

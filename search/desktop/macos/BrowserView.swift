@@ -10,18 +10,23 @@ final class BrowserModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
     @Published var canGoForward = false
     @Published var loading = false
     @Published var error: String?
+    @Published var progress = 0.0
+    @Published var clearingData = false
     let webView: WKWebView
     private var observations: [NSKeyValueObservation] = []
 
-    override init() {
+    init(dataStore: WKWebsiteDataStore? = nil) {
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .nonPersistent()
+        configuration.websiteDataStore = dataStore ?? .default()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
         webView = WKWebView(frame: .zero, configuration: configuration)
         super.init()
         webView.navigationDelegate = self
         webView.uiDelegate = self
         observations = [
+            webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
+                Task { @MainActor [weak self] in self?.progress = self?.webView.estimatedProgress ?? 0 }
+            },
             webView.observe(\.url, options: [.new]) { [weak self] _, _ in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
@@ -47,6 +52,13 @@ final class BrowserModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
                 }
             },
         ]
+    }
+
+    func clearWebsiteData() async {
+        clearingData = true
+        returnToSearch()
+        await webView.configuration.websiteDataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), modifiedSince: .distantPast)
+        clearingData = false
     }
 
     static func accepts(_ url: URL) -> Bool {
@@ -133,9 +145,12 @@ struct BrowserSurface: NSViewRepresentable {
 
 struct BrowserView: View {
     @ObservedObject var model: BrowserModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(spacing: 0) {
-            if model.loading { ProgressView().progressViewStyle(.linear).frame(height: 2) }
+            ProgressView(value: model.progress).progressViewStyle(.linear).tint(.teal)
+                .frame(height: 3).opacity(model.loading ? 1 : 0)
+                .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: model.progress)
             if let error = model.error {
                 HStack { Text(error).textSelection(.enabled); Spacer(); Button("Retry") { model.navigate() } }
                     .font(.system(size: 12)).padding(12).background(Color.red.opacity(0.08))
@@ -149,6 +164,9 @@ struct QuillWorkspace: View {
     @ObservedObject var search: SearchModel
     @StateObject private var browser = BrowserModel()
     @Environment(\.colorScheme) private var scheme
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showPrivacy = false
+    @State private var confirmClear = false
     @State private var location = ""
     @FocusState private var locationFocused: Bool
 
@@ -197,12 +215,33 @@ struct QuillWorkspace: View {
                 } label: { Image(systemName: browser.loading ? "xmark" : "arrow.clockwise") }
                     .disabled(!browser.visible).keyboardShortcut("r", modifiers: .command)
                     .accessibilityLabel(browser.loading ? "Stop" : "Reload").help("Reload (⌘R)")
+                Button { showPrivacy = true } label: { Image(systemName: "shield.lefthalf.filled") }
+                    .help("Cookies and website data").accessibilityLabel("Cookies and website data")
             }.buttonStyle(.borderless).padding(.horizontal, 18).padding(.vertical, 10)
                 .foregroundStyle(scheme == .dark ? Color.white : Color.black)
                 .background(scheme == .dark ? Color(red: 0.09, green: 0.09, blue: 0.085) : Color(red: 0.975, green: 0.97, blue: 0.95))
             Divider()
             if browser.visible { BrowserView(model: browser) }
-            else { SearchView(model: search) }
+            else { SearchView(model: search).transition(.opacity) }
+        }
+        .tint(.teal)
+        .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: browser.visible)
+        .sheet(isPresented: $showPrivacy) {
+            VStack(alignment: .leading, spacing: 18) {
+                Label("Cookies & website data", systemImage: "shield.lefthalf.filled").font(.title2.bold())
+                Text("Websites can save cookies, sign-ins and local storage on this Mac. Their usual expiry rules still apply.")
+                Text("WebKit manages website caching and tracking protections. Quill’s crawler does not use your browser cookies.").foregroundStyle(.secondary)
+                HStack {
+                    Button("Clear website data", role: .destructive) { confirmClear = true }.disabled(browser.clearingData)
+                    if browser.clearingData { ProgressView().controlSize(.small) }
+                    Spacer()
+                    Button("Done") { showPrivacy = false }.keyboardShortcut(.defaultAction)
+                }
+            }.padding(28).frame(width: 460)
+            .confirmationDialog("Clear cookies and website data? This signs you out of websites and clears their caches. Your search index stays saved.", isPresented: $confirmClear) {
+                Button("Clear website data", role: .destructive) { Task { await browser.clearWebsiteData() } }
+            }
+
         }
         .onChange(of: browser.address) { _, value in
             if browser.visible && !locationFocused { location = value }

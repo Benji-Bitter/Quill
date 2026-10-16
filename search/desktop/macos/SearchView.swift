@@ -16,6 +16,7 @@ struct Brand: View {
 
 struct SearchView: View {
     @ObservedObject var model: SearchModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showSources = false
     @State private var showRanking = false
     @FocusState private var queryFocused: Bool
@@ -34,7 +35,7 @@ struct SearchView: View {
                 VStack(alignment: .leading, spacing: 24) {
                     if model.searchedQuery.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("A search engine.\nOn your terms.")
+                            Text("Your web.\nA little clearer.")
                                 .font(.system(size: 44, weight: .regular, design: .serif))
                             Text("Real pages. Your own index. No ads or query uploads.")
                                 .font(.system(size: 15)).foregroundStyle(.secondary)
@@ -53,7 +54,9 @@ struct SearchView: View {
                     }.padding(14)
                         .background(scheme == .dark ? Color.white.opacity(0.06) : Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.18), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(queryFocused ? Color.teal.opacity(0.7) : Color.primary.opacity(0.12), lineWidth: 1))
+                        .shadow(color: .black.opacity(0.04), radius: 14, y: 5)
+                        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: queryFocused)
                     if let error = model.error {
                         Text(error).foregroundStyle(.red).textSelection(.enabled)
                     }
@@ -79,7 +82,7 @@ struct SearchView: View {
                             }
                         }
                         LazyVStack(alignment: .leading, spacing: 28) {
-                            ForEach(model.hits) { hit in ResultRow(hit: hit) }
+                            ForEach(model.hits) { hit in ResultRow(hit: hit).transition(.opacity) }
                         }
                     } else if model.stats.documents > 0 && model.searchedQuery.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
@@ -102,12 +105,15 @@ struct SearchView: View {
         .background(scheme == .dark ? Color(red: 0.09, green: 0.09, blue: 0.085) : Color(red: 0.975, green: 0.97, blue: 0.95))
         .sheet(isPresented: $showSources) { SourcesView(model: model) }
         .sheet(isPresented: $showRanking) { RankingView() }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: model.hits.map(\.id))
         .onAppear { queryFocused = true }
     }
 }
 
 struct ResultRow: View {
     let hit: SearchHit
+    @State private var hovered = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(hit.url).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).textSelection(.enabled)
@@ -141,6 +147,11 @@ struct ResultRow: View {
             }.font(.system(size: 11)).foregroundStyle(.secondary)
             }
         }
+        .padding(20)
+        .background(RoundedRectangle(cornerRadius: 16).fill(Color.primary.opacity(hovered ? 0.055 : 0.025)))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.primary.opacity(hovered ? 0.13 : 0.06)))
+        .onHover { hovered = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: hovered)
     }
 }
 

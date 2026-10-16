@@ -19,7 +19,20 @@ struct SearchAppSmoke {
         precondition(model.error == nil, model.error ?? "")
         precondition(!model.hits.isEmpty, "Native model must return actual engine hits")
         precondition(!model.hits[0].matched_terms.isEmpty)
+        let firstSearchMilliseconds = model.elapsed
+        let cacheStart = Date()
+        model.search()
+        precondition(!model.searching && !model.hits.isEmpty, "Repeated searches must use the in-memory cache")
+        print("Search timing: first \(firstSearchMilliseconds) ms; cached \(Date().timeIntervalSince(cacheStart) * 1000) ms")
         print("Native search: \(model.hits.count) results, first: \(model.hits[0].title)")
+        let excludedHost = URL(string: model.hits[0].url)!.host!
+        let policy = temporary.appendingPathComponent("excluded-domains.txt")
+        try excludedHost.write(to: policy, atomically: true, encoding: .utf8)
+        model.search()
+        while model.searching { try await Task.sleep(nanoseconds: 10_000_000) }
+        precondition(!model.hits.contains { URL(string: $0.url)?.host == excludedHost }, "Changed exclusions must invalidate cached results")
+        try FileManager.default.removeItem(at: policy)
+        print("Search cache invalidation passed")
         model.query = "quillnonexistentterm92849"
         model.search()
         while model.searching { try await Task.sleep(nanoseconds: 10_000_000) }
