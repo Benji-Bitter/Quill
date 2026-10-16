@@ -1,0 +1,7 @@
+{
+  "id": "dark-pages",
+  "name": "Dark Pages",
+  "version": "1.0.0",
+  "description": "A simple dark reading palette for websites. Some sites may need this switched off.",
+  "css": ":root { color-scheme: dark !important; } html, body { background: #141719 !important; color: #e5e7eb !important; } main, article, section, header, footer, nav, aside { background-color: #141719 !important; color: #e5e7eb !important; } a { color: #7dd3fc !important; } input, textarea, select { background: #24292d !important; color: #e5e7eb !important; }"
+}

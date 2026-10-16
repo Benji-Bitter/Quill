@@ -12,10 +12,13 @@ final class BrowserModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
     @Published var error: String?
     @Published var progress = 0.0
     @Published var clearingData = false
+    let extensions: ExtensionManager
+    private var navigationVersion = 0
     let webView: WKWebView
     private var observations: [NSKeyValueObservation] = []
 
-    init(dataStore: WKWebsiteDataStore? = nil) {
+    init(dataStore: WKWebsiteDataStore? = nil, extensionDirectory: URL? = nil) {
+        extensions = ExtensionManager(directory: extensionDirectory)
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = dataStore ?? .default()
         configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
@@ -70,7 +73,13 @@ final class BrowserModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
         visible = true
         address = url.absoluteString
         error = nil
-        webView.load(URLRequest(url: url))
+        navigationVersion += 1
+        let version = navigationVersion
+        Task {
+            await extensions.apply(to: webView.configuration.userContentController)
+            guard version == navigationVersion else { return }
+            webView.load(URLRequest(url: url))
+        }
     }
 
     func navigate() {
@@ -94,6 +103,7 @@ final class BrowserModel: NSObject, ObservableObject, WKNavigationDelegate, WKUI
     }
 
     func returnToSearch() {
+        navigationVersion += 1
         if let url = webView.url, Self.accepts(url) { lastPage = url }
 
         webView.stopLoading()
@@ -165,6 +175,7 @@ struct QuillWorkspace: View {
     @StateObject private var browser = BrowserModel()
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showExtensions = false
     @State private var showPrivacy = false
     @State private var confirmClear = false
     @State private var location = ""
@@ -215,6 +226,8 @@ struct QuillWorkspace: View {
                 } label: { Image(systemName: browser.loading ? "xmark" : "arrow.clockwise") }
                     .disabled(!browser.visible).keyboardShortcut("r", modifiers: .command)
                     .accessibilityLabel(browser.loading ? "Stop" : "Reload").help("Reload (⌘R)")
+                Button { showExtensions = true } label: { Image(systemName: "puzzlepiece.extension") }
+                    .help("Extensions").accessibilityLabel("Extensions")
                 Button { showPrivacy = true } label: { Image(systemName: "shield.lefthalf.filled") }
                     .help("Cookies and website data").accessibilityLabel("Cookies and website data")
             }.buttonStyle(.borderless).padding(.horizontal, 18).padding(.vertical, 10)
@@ -226,6 +239,11 @@ struct QuillWorkspace: View {
         }
         .tint(.teal)
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.18), value: browser.visible)
+        .sheet(isPresented: $showExtensions) {
+            ExtensionsView(manager: browser.extensions) {
+                Task { await browser.extensions.apply(to: browser.webView.configuration.userContentController) }
+            }
+        }
         .sheet(isPresented: $showPrivacy) {
             VStack(alignment: .leading, spacing: 18) {
                 Label("Cookies & website data", systemImage: "shield.lefthalf.filled").font(.title2.bold())

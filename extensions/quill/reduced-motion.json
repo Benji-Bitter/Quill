@@ -1,0 +1,7 @@
+{
+  "id": "reduced-motion",
+  "name": "Reduced Motion",
+  "version": "1.0.0",
+  "description": "Stops CSS animations and transitions and disables smooth scrolling on websites. Does not stop videos or JavaScript animation.",
+  "css": "*, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }"
+}

@@ -17,7 +17,7 @@ this traffic is separate from the offline search engine. WebKit's normal TLS
 validation remains enabled. Cookies, site storage and website caches persist in Quill’s own WebKit profile,
 separate from Safari. The toolbar’s shield button can clear all website data; visiting pages does not add them to the search index. Returning
 to search unloads the current page to stop hidden scripts and media. Camera and
-microphone are denied. Downloads, extension support, multiple tabs are not implemented in this embedded browser. This is a macOS WebKit
+microphone are denied. Downloads and multiple tabs are not implemented in this embedded browser. This is a macOS WebKit
 integration, separate from the repository's experimental Gecko host.
 
 Build with Rust, Python 3.11+ and Xcode command-line tools:
@@ -98,3 +98,8 @@ Longer topic queries continue searching indexed page text.
 Recent page-search results are cached in memory (up to 64 queries), invalidated
 when the index or exclusion file changes. Website shortcuts remain immediate.
 Subtle focus, hover and result transitions respect macOS Reduce Motion.
+
+The puzzle-piece toolbar opens [GitHub-backed Quill extensions](../extensions/quill/README.md):
+content-blocking rules and page styles, with manual installation and updates.
+Chrome/Firefox extension manifests are not supported. Website changes apply on
+the next navigation or reload; extension data is separate from cookies and the index.

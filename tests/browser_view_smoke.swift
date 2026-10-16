@@ -7,6 +7,13 @@ import WebKit
         while !condition() && Date() < deadline { try await Task.sleep(nanoseconds: 50_000_000) }
         precondition(condition(), "Timed out waiting for WebKit")
     }
+    @MainActor static func javascript(_ browser: BrowserModel, _ source: String) async throws -> Any {
+        try await withCheckedThrowingContinuation { continuation in
+            browser.webView.callAsyncJavaScript(source, arguments: [:], in: nil, in: .page) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
     @MainActor static func main() {
         setbuf(stdout, nil)
         let app = NSApplication.shared
@@ -17,12 +24,14 @@ import WebKit
         app.run()
     }
     @MainActor static func run() async throws {
+        let extensionDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: extensionDirectory) }
         let store = WKWebsiteDataStore(forIdentifier: UUID())
-        let browser = BrowserModel(dataStore: store)
+        let browser = BrowserModel(dataStore: store, extensionDirectory: extensionDirectory)
         precondition(browser.webView.configuration.websiteDataStore.isPersistent)
         let cookie = HTTPCookie(properties: [.domain: "127.0.0.1", .path: "/", .name: "quill-test", .value: "saved", .expires: Date().addingTimeInterval(3600)])!
         await store.httpCookieStore.setCookie(cookie)
-        let reopened = BrowserModel(dataStore: store)
+        let reopened = BrowserModel(dataStore: store, extensionDirectory: extensionDirectory)
         let cookies = await reopened.webView.configuration.websiteDataStore.httpCookieStore.allCookies()
         precondition(cookies.contains { $0.name == "quill-test" && $0.value == "saved" })
         await reopened.clearWebsiteData()
@@ -43,6 +52,43 @@ import WebKit
             return browser.webView.title == "One" && !browser.loading
         }
         print("First page loaded")
+        for bad in ["http://raw.githubusercontent.com/a/b/main/a.json", "https://evil.test/a.json", "https://raw.githubusercontent.com@localhost/a/b/main/a.json"] {
+            do { _ = try ExtensionManager.githubURL(bad); fatalError("Unsafe package URL accepted") } catch {}
+        }
+        let manager = browser.extensions
+        let fixture = QuillExtension(id: "test-blocker", name: "Test blocker", version: "1", description: "Local fixture", rules: #"[{"trigger":{"url-filter":"/ad[.]js"},"action":{"type":"block"}}]"#, css: "body { background-color: rgb(20, 23, 25) !important; }")
+        try fixture.validate()
+        manager.preview = InstalledExtension(package: fixture, source: "https://raw.githubusercontent.com/test/test/main/test.json", sha256: "fixture", enabled: true)
+        manager.installPreview()
+        await manager.apply(to: browser.webView.configuration.userContentController)
+        precondition(manager.error == nil, manager.error ?? "")
+        browser.open(URL(string: base + "/one?extensions")!)
+        try await wait { browser.webView.url?.query == "extensions" && !browser.webView.isLoading }
+        let blocked = try await javascript(browser, "try { await fetch('/ad.js'); return false; } catch { return true; }") as? Bool
+        precondition(blocked == true, "Enabled extension must block the request")
+        let background = try await browser.webView.evaluateJavaScript("getComputedStyle(document.body).backgroundColor") as? String
+        precondition(background == "rgb(20, 23, 25)", "Extension CSS must affect the page")
+        precondition(ExtensionManager(directory: extensionDirectory).installed.count == 1, "Extensions must persist")
+        manager.setEnabled("test-blocker", false)
+        await manager.apply(to: browser.webView.configuration.userContentController)
+        let allowed = try await javascript(browser, "try { await fetch('/ad.js'); return true; } catch { return false; }") as? Bool
+        precondition(allowed == true, "Disabled extension must permit the request")
+        manager.remove("test-blocker")
+        precondition(ExtensionManager(directory: extensionDirectory).installed.isEmpty)
+        for name in ["ad-blocker", "dark-pages", "reduced-motion"] {
+            let data = try Data(contentsOf: URL(fileURLWithPath: FileManager.default.currentDirectoryPath + "/extensions/quill/" + name + ".json"))
+            let package = try JSONDecoder().decode(QuillExtension.self, from: data)
+            try package.validate()
+            manager.preview = InstalledExtension(package: package, source: "fixture", sha256: "fixture", enabled: true)
+            manager.installPreview()
+        }
+        await manager.apply(to: browser.webView.configuration.userContentController)
+        precondition(manager.error == nil, manager.error ?? "")
+        for item in manager.installed { manager.remove(item.id) }
+        await manager.apply(to: browser.webView.configuration.userContentController)
+        browser.open(URL(string: base + "/one")!)
+        try await wait { browser.webView.url?.query == nil && !browser.webView.isLoading }
+        print("Extension blocking, styles, toggle, persistence, removal and starter compilation passed")
         let body = try await browser.webView.evaluateJavaScript("document.body.textContent") as? String
         precondition(body?.contains("Real website content") == true)
         // A scripted click has no user gesture; allow it only in this test.
