@@ -52,7 +52,9 @@ not establish truth, detect all SEO spam or identify original authorship.
 `collect INDEX PAGES URL...` merges multiple crawls into an existing index, refreshing
 matching URLs. Each completed site is saved atomically. An OS file lock prevents
 concurrent CLI writers and is released even if a crawl is terminated. `stats INDEX`
-reports document and origin counts. Search hits expose matching terms and the
+reports document and origin counts. `remove INDEX URL...` deletes exact canonical
+page URLs and rebuilds postings before atomically saving, under the same writer
+lock. Removing a crawl source also requires removing it from the saved source list. Search hits expose matching terms and the
 repetition factor; score ties are resolved by URL.
 
 `query` is the CLI. Its benchmark separates loading from 1,000 in-memory queries.

@@ -48,6 +48,21 @@ pub struct Hit {
 }
 
 impl Index {
+    pub fn remove_urls(&mut self, urls: &[String]) -> Result<usize> {
+        let targets: BTreeSet<String> = urls
+            .iter()
+            .map(|u| canonicalize(u).map(String::from))
+            .collect::<Result<_>>()?;
+        let before = self.len();
+        let mut remaining = Self::default();
+        for document in &self.documents {
+            if !targets.contains(&document.url) {
+                remaining.insert(document.clone())?;
+            }
+        }
+        *self = remaining;
+        Ok(before - self.len())
+    }
     pub fn documents(&self) -> &[Document] {
         &self.documents
     }
@@ -299,6 +314,26 @@ mod tests {
         assert_eq!(hits[0].url, "https://example.org/a");
         assert!(hits[0].score > 0.0);
         assert!(hits[0].repetition_factor > 0.0 && hits[0].repetition_factor <= 1.0);
+    }
+    #[test]
+    fn removing_pages_rebuilds_postings_and_survives_reload() {
+        let mut index = Index::default();
+        index
+            .insert(doc("a", "Delete", "unique deleted words"))
+            .unwrap();
+        index.insert(doc("b", "Keep", "retained content")).unwrap();
+        assert_eq!(
+            index
+                .remove_urls(&["https://example.org/a#fragment".into()])
+                .unwrap(),
+            1
+        );
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("index.json");
+        index.save(&path).unwrap();
+        let loaded = Index::load(&path).unwrap();
+        assert!(loaded.query("deleted", 10).is_empty());
+        assert_eq!(loaded.query("retained", 10)[0].title, "Keep");
     }
     #[test]
     fn malformed_indexes_fail_without_panics() {

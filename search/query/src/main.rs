@@ -51,6 +51,17 @@ fn run() -> Result<()> {
                 }
             }
         }
+        Some("remove") if args.len() >= 3 => {
+            let path = Path::new(&args[1]);
+            let _lock = writer_lock(path)?;
+            let mut index = Index::load(path)?;
+            let removed = index.remove_urls(&args[2..])?;
+            index.save(path)?;
+            println!(
+                "{}",
+                serde_json::json!({"removed":removed,"total":index.len()})
+            );
+        }
         Some("stats") if args.len() == 2 => {
             let index = if Path::new(&args[1]).exists() {
                 Index::load(Path::new(&args[1]))?
@@ -97,7 +108,7 @@ fn run() -> Result<()> {
         }
         _ => {
             return Err(invalid(
-                "usage: quill-search crawl INDEX URL | query INDEX WORDS | bench INDEX WORDS | collect INDEX PAGES URL... | stats INDEX",
+                "usage: quill-search crawl INDEX URL | query INDEX WORDS | bench INDEX WORDS | collect INDEX PAGES URL... | stats INDEX | remove INDEX URL...",
             ));
         }
     }
