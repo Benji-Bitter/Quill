@@ -61,7 +61,7 @@ struct SearchView: View {
                         HStack { ProgressView().controlSize(.small); Text(model.status).lineLimit(2); Spacer(); Button("Stop", action: model.stop) }
                             .font(.system(size: 12)).foregroundStyle(.secondary)
                     }
-                    if model.stats.documents == 0 {
+                    if model.stats.documents == 0 && model.hits.isEmpty {
                         VStack(alignment: .leading, spacing: 14) {
                             Text("Start with the websites you want to search.").font(.system(size: 21, design: .serif))
                             Text("Quill fetches public pages directly, follows their links and builds a searchable index here. Add sources to get started.")
@@ -74,7 +74,7 @@ struct SearchView: View {
                         if model.hits.isEmpty {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text("No matching pages in your index.").font(.system(size: 22, design: .serif))
-                                Text("Try different words or crawl more websites. Quill only returns pages it has actually indexed.").foregroundStyle(.secondary)
+                                Text("Try different words or crawl more websites. You can also search for a saved website by name.").foregroundStyle(.secondary)
                                 Button("Add more sources") { showSources = true }
                             }
                         }
@@ -120,6 +120,9 @@ struct ResultRow: View {
                 }.buttonStyle(.plain)
             }
             Text(hit.snippet).font(.system(size: 14)).lineSpacing(4).foregroundStyle(.secondary).textSelection(.enabled)
+            if hit.website == true {
+                Text("Saved website · Homepage shortcut").font(.system(size: 11)).foregroundStyle(.secondary)
+            } else {
             DisclosureGroup("Source details & ranking") {
                 if let fetched = hit.fetched_at {
                     Text("Fetched: \(Date(timeIntervalSince1970: fetched).formatted(date: .abbreviated, time: .shortened))")
@@ -136,6 +139,7 @@ struct ResultRow: View {
                 Text("Matched: \(hit.matched_terms.joined(separator: ", "))\nBM25 score: \(hit.score.formatted(.number.precision(.fractionLength(3)))) · repetition factor: \(hit.repetition_factor.formatted(.number.precision(.fractionLength(2))))\nTitle matches have 3× term weight. Scores measure text relevance, not truth.")
                     .font(.system(size: 12)).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading).padding(.top, 6)
             }.font(.system(size: 11)).foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -145,7 +149,7 @@ struct RankingView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             Text("Inspect the ranking.").font(.system(size: 30, design: .serif))
-            Text("Results come from Quill’s own crawler and inverted index. Queries stay on your Mac.")
+            Text("Results come from Quill’s own crawler and inverted index. Queries stay on your Mac. Exact saved website names or domains show homepage shortcuts; other searches return indexed pages.")
             Text("Quill scores matching words using BM25, with title terms weighted three times and a penalty for extreme repetition. Results use the same rules regardless of publisher; there are no paid placements, political labels or personalized boosts.")
             Text("No ranking is free of bias. Your choice of sources, crawl coverage, language and these scoring rules influence what you see. A high score means a text match, not a verified claim.")
             Text("Current limits: 1,000 pages per index; HTML text only; no JavaScript rendering, semantic matching or worldwide index. Up to 10 results are shown per query.").foregroundStyle(.secondary)

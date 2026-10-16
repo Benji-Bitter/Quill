@@ -10,6 +10,7 @@ struct SearchHit: Decodable, Identifiable {
     let repetition_factor: Double
     let fetched_at: Double?
     let published_at: String?
+    var website: Bool? = nil
     var id: String { url }
 }
 
@@ -108,12 +109,49 @@ final class SearchModel: ObservableObject {
         catch { self.error = error.localizedDescription }
     }
 
+    // Directory shortcuts are navigation results, not fetched page content.
+    func websiteResults(for query: String) -> [SearchHit] {
+        let text = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        func hostKey(_ host: String) -> String {
+            let h = host.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+            return h.hasPrefix("www.") ? String(h.dropFirst(4)) : h
+        }
+        let blocked = ((try? String(contentsOf: directory.appendingPathComponent("excluded-domains.txt"), encoding: .utf8)) ?? "")
+            .split(whereSeparator: { $0.isNewline }).map { $0.trimmingCharacters(in: .whitespaces).lowercased() }
+            .filter { !$0.isEmpty && !$0.hasPrefix("#") }
+        var matches: [String: SearchHit] = [:]
+        let saved = ((try? String(contentsOf: directory.appendingPathComponent("sources.txt"), encoding: .utf8)) ?? sources)
+            .split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        for seed in saved {
+            guard let url = URL(string: seed), let host = url.host?.lowercased(),
+                  ["https", "http"].contains(url.scheme ?? ""), url.user == nil, url.password == nil else { continue }
+            let key = hostKey(host)
+            guard !blocked.contains(where: { host == $0 || host.hasSuffix("." + $0) || key == $0 }) else { continue }
+            let name = sourceNotes.first { URL(string: $0.url)?.host.map(hostKey) == key }?.name
+            let label = key.split(separator: ".").count == 2 ? String(key.split(separator: ".")[0]) : key
+            guard hostKey(text) == key || text == host || text == label || text == name?.lowercased() else { continue }
+            var home = URLComponents(url: url, resolvingAgainstBaseURL: false)!
+            home.path = "/"; home.query = nil; home.fragment = nil
+            guard let destination = home.url?.absoluteString else { continue }
+            if matches[key] == nil || !host.hasPrefix("www.") {
+                matches[key] = SearchHit(title: name ?? key, url: destination,
+                    snippet: "Open website homepage", score: 0, matched_terms: [],
+                    repetition_factor: 1, fetched_at: nil, published_at: nil, website: true)
+            }
+        }
+        return matches.values.sorted { $0.url < $1.url }
+    }
+
     func search() {
         searchVersion += 1
         let version = searchVersion
         let text = query.trimmingCharacters(in: .whitespacesAndNewlines)
         searchedQuery = text
         guard !text.isEmpty else { hits = []; searching = false; return }
+        let websites = websiteResults(for: text)
+        guard websites.isEmpty else {
+            hits = websites; searching = false; error = nil; elapsed = 0; return
+        }
         guard stats.documents > 0 else { hits = []; searching = false; return }
         searching = true
         error = nil

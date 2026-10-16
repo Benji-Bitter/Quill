@@ -90,3 +90,8 @@ The native smoke test calls the actual Rust engine, checks real ranked results a
 empty results, then deletes only a temporary index. Rust tests cover refresh/merge,
 score explanations, exclusive writers and bounded crawl delays. CI builds the
 macOS app and runs the model test alongside the existing cross-platform suite.
+
+Exact saved website names or domains (for example, `YouTube` or `youtube.com`)
+show a homepage shortcut instead of internal pages. These directory results are
+labeled separately from crawled content and respect saved domain exclusions.
+Longer topic queries continue searching indexed page text.

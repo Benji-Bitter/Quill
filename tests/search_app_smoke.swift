@@ -29,6 +29,21 @@ struct SearchAppSmoke {
         await model.refresh()
         precondition(model.stats.documents == 0)
         print("Native empty results and index deletion passed")
+        try "https://www.youtube.com/creators\nhttps://youtube.com/\nhttps://kick.com/\n".write(to: temporary.appendingPathComponent("sources.txt"), atomically: true, encoding: .utf8)
+        model.sourceNotes = [SourceNote(name: "YouTube", url: "https://youtube.com/", category: "Video", source_information: "https://youtube.com/")]
+        for term in ["YouTube", "youtube.com", "www.youtube.com"] {
+            model.query = term; model.search()
+            precondition(model.hits.count == 1 && model.hits[0].url == "https://youtube.com/")
+            precondition(model.hits[0].website == true && model.hits[0].fetched_at == nil)
+        }
+        precondition(model.websiteResults(for: "youtube creators").isEmpty, "Topic searches must retain page search")
+        precondition(model.websiteResults(for: "notyoutube").isEmpty, "No substring domain matches")
+        model.query = "kick"; model.search()
+        precondition(model.hits.first?.url == "https://kick.com/", "Saved sites work even without crawled pages")
+        try "youtube.com\n".write(to: temporary.appendingPathComponent("excluded-domains.txt"), atomically: true, encoding: .utf8)
+        precondition(model.websiteResults(for: "YouTube").isEmpty, "Website shortcuts respect exclusions")
+        try FileManager.default.removeItem(at: temporary.appendingPathComponent("excluded-domains.txt"))
+        print("Website homepage search, deduplication, topic queries and exclusions passed")
         if args.count > 4 {
             model.collect(args[4], pages: 20)
             while model.crawling { try await Task.sleep(nanoseconds: 10_000_000) }
